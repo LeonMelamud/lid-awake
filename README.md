@@ -34,8 +34,11 @@ The repo is a self-hosting plugin: hooks are registered automatically, no settin
 
    ```bash
    echo "$USER ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset -a disablesleep 0" \
-     | sudo tee /etc/sudoers.d/lid-awake >/dev/null && sudo chmod 440 /etc/sudoers.d/lid-awake
+     | sudo tee /etc/sudoers.d/lid-awake >/dev/null && sudo chmod 440 /etc/sudoers.d/lid-awake \
+     && sudo visudo -c
    ```
+
+   The final `visudo -c` must print "parsed OK" — a malformed sudoers file can break `sudo` itself, so if it complains, remove the file (`sudo rm /etc/sudoers.d/lid-awake`) and retry.
 
 Done. Verify with `bash lid-awake.sh status` after your next prompt.
 
@@ -86,6 +89,6 @@ CI (`.github/workflows/ci.yml`) runs shellcheck + tests and a [gitleaks](https:/
 
 ## Requirements
 
-- macOS (`pmset`)
-- Claude Code with hooks support
-- `python3` (parses the hook JSON for the session id; falls back to parent PID)
+- macOS (`pmset` — everything the script uses ships with the OS, nothing to install)
+- An admin account (for the one-time sudoers entry)
+- A recent Claude Code (plugin marketplace support; for the manual route, hooks support is enough)

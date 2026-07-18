@@ -16,10 +16,12 @@ LOG="$HOME/.claude/scripts/lid-awake.log"
 mkdir -p "$DIR"
 
 # session id from the hook's stdin JSON (skip when run manually from a tty);
-# fall back to the parent pid so manual runs still refcount distinctly
+# fall back to the parent pid so manual runs still refcount distinctly.
+# sed, not python3: stock on every Mac, and python3 without Xcode CLT pops
+# a GUI install dialog — fatal from a background hook
 SID=""
 if [ ! -t 0 ]; then
-  SID=$(python3 -c 'import sys,json;print(json.load(sys.stdin).get("session_id",""))' 2>/dev/null)
+  SID=$(sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' 2>/dev/null | head -n1)
 fi
 [ -n "$SID" ] || SID="pid$PPID"
 SID=${SID:0:8}
