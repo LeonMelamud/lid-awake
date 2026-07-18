@@ -1,5 +1,7 @@
 # lid-awake
 
+![Closed MacBook still glowing while the moon dissolves — Claude keeps working](assets/banner.png)
+
 Keep a MacBook awake (lid closed or not) while any Claude Code session is working, and re-enable sleep the moment the **last** session finishes. Multi-session safe, O(1) per event, no daemons, no polling.
 
 ## How it works
