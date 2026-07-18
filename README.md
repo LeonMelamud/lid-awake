@@ -59,6 +59,15 @@ bash ~/.claude/scripts/lid-awake.sh status   # pmset state + current holders + l
 bash ~/.claude/scripts/lid-awake.sh clear    # drop all flags, re-enable sleep
 ```
 
+## Tests & security checks
+
+```bash
+bash test.sh        # 10 assertions: refcounting, stale pruning, clear — stubs sudo, no root needed
+shellcheck *.sh     # static analysis
+```
+
+CI (`.github/workflows/ci.yml`) runs shellcheck + tests and a [gitleaks](https://github.com/gitleaks/gitleaks) secret scan on every push. Snyk was skipped on purpose: it scans package dependencies and this repo has none — shellcheck is the SAST tool for shell.
+
 ## Requirements
 
 - macOS (`pmset`)
