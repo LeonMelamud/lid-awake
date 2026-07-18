@@ -19,7 +19,27 @@ Safety nets:
 - **Log** at `~/.claude/scripts/lid-awake.log`, self-truncated at ~200KB.
 - `status` / `clear` subcommands for debugging and manual unstick.
 
-## Install
+## Install (fast — as a Claude Code plugin)
+
+The repo is a self-hosting plugin: hooks are registered automatically, no settings.json editing.
+
+1. In Claude Code:
+
+   ```
+   /plugin marketplace add LeonMelamud/lid-awake
+   /plugin install lid-awake@lid-awake
+   ```
+
+2. Allow the two exact `pmset` commands without a password (one-time, the only manual step — no plugin can or should automate sudoers):
+
+   ```bash
+   echo "$USER ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset -a disablesleep 0" \
+     | sudo tee /etc/sudoers.d/lid-awake >/dev/null && sudo chmod 440 /etc/sudoers.d/lid-awake
+   ```
+
+Done. Verify with `bash lid-awake.sh status` after your next prompt.
+
+## Install (manual, without the plugin system)
 
 1. Copy the script:
 
@@ -28,11 +48,7 @@ Safety nets:
    cp lid-awake.sh ~/.claude/scripts/lid-awake.sh
    ```
 
-2. Allow the two exact `pmset` commands without a password (`sudo visudo`, or a file in `/etc/sudoers.d/`):
-
-   ```
-   yourusername ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset -a disablesleep 0
-   ```
+2. Add the sudoers entry from step 2 above.
 
 3. Wire the hooks in `~/.claude/settings.json`:
 

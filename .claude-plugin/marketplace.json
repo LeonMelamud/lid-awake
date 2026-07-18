@@ -1,0 +1,14 @@
+{
+  "name": "lid-awake",
+  "description": "Self-hosting marketplace for the lid-awake plugin",
+  "owner": { "name": "Leon Melamud" },
+  "plugins": [
+    {
+      "name": "lid-awake",
+      "source": "./",
+      "description": "Keep your Mac awake while any Claude Code session is working (multi-session safe pmset toggle).",
+      "category": "utilities",
+      "keywords": ["macos", "pmset", "sleep", "hooks"]
+    }
+  ]
+}
