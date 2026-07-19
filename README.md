@@ -17,7 +17,8 @@ The flag **directory** is the real-time state: one empty file per live session. 
 
 Safety nets:
 
-- **Stale flags** from crashed/killed sessions are pruned after 12h of no touch (flags are re-touched on every prompt, so only dead sessions go stale).
+- **Crash cleanup** — each flag records its session's transcript path; a working session updates its transcript constantly, so a transcript stale for 30 min marks a dead session and its flag is dropped at the next event from any session. A 12h flag-age prune backstops flags with no transcript.
+- **Battery guard** — below 20% on battery power, new holds are skipped (no cooked Mac in a closed bag); self-heals on the next prompt once charging or above the threshold.
 - **Log** at `~/.claude/scripts/lid-awake.log`, self-truncated at ~200KB.
 - `status` / `clear` subcommands for debugging and manual unstick.
 
@@ -88,6 +89,10 @@ shellcheck *.sh     # static analysis
 ```
 
 CI (`.github/workflows/ci.yml`) runs shellcheck + tests and a [gitleaks](https://github.com/gitleaks/gitleaks) secret scan on every push. Snyk was skipped on purpose: it scans package dependencies and this repo has none — shellcheck is the SAST tool for shell.
+
+## Windows
+
+An experimental Windows port (powercfg lid-action toggle + elevated scheduled tasks instead of pmset + sudoers) lives in [`windows/`](windows/) — see its README. Untested on real hardware; testers welcome.
 
 ## Requirements
 

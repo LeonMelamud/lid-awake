@@ -15,27 +15,50 @@ DIR="$HOME/.claude/scripts/.lid-awake-flags"
 LOG="$HOME/.claude/scripts/lid-awake.log"
 mkdir -p "$DIR"
 
-# session id from the hook's stdin JSON (skip when run manually from a tty);
-# fall back to the parent pid so manual runs still refcount distinctly.
-# sed, not python3: stock on every Mac, and python3 without Xcode CLT pops
-# a GUI install dialog — fatal from a background hook
-SID=""
+# session id + transcript path from the hook's stdin JSON (skip when run
+# manually from a tty); fall back to the parent pid so manual runs still
+# refcount distinctly. sed, not python3: stock on every Mac, and python3
+# without Xcode CLT pops a GUI install dialog — fatal from a background hook
+IN="" SID="" TP=""
 if [ ! -t 0 ]; then
-  SID=$(sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' 2>/dev/null | head -n1)
+  IN=$(cat)
+  SID=$(printf '%s' "$IN" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+  TP=$(printf '%s' "$IN" | sed -n 's/.*"transcript_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
 fi
 [ -n "$SID" ] || SID="pid$PPID"
 SID=${SID:0:8}
 
 log(){ echo "$(date '+%F %T') sid=$SID $*" >> "$LOG"; }
 
-# prune stale flags (crashed/killed sessions) so the mac can't stay awake forever
-# ponytail: 12h mtime cutoff; flags are re-touched on every prompt, so a live
-# session never goes stale — only a dead one does
+# crash cleanup: each flag stores its session's transcript path. A session
+# that is actually working appends to its transcript constantly, so a
+# transcript untouched for 30 min means the session is dead — drop its flag
+# at the next event from ANY session. 12h flag-mtime cutoff stays as the
+# backstop for flags with no readable transcript (manual runs, legacy).
+for f in "$DIR"/*; do
+  [ -f "$f" ] || continue
+  tp=$(head -n1 "$f" 2>/dev/null)
+  if [ -n "$tp" ] && [ -f "$tp" ] && [ -n "$(find "$tp" -mmin +30 2>/dev/null)" ]; then
+    rm -f "$f"
+    log "pruned $(basename "$f") (transcript stale >30m, session dead)"
+  fi
+done
 find "$DIR" -type f -mmin +720 -delete 2>/dev/null
 
 case "$1" in
   on)
-    touch "$DIR/$SID"
+    # ponytail: below 20% on battery, don't pin the Mac awake — closed-bag
+    # drain/heat guard. Self-heals: next prompt re-checks, so plugging in
+    # (or charging back over 20%) re-enables the hold automatically.
+    BATT=$(pmset -g batt 2>/dev/null)
+    if printf '%s' "$BATT" | grep -q "Battery Power"; then
+      PCT=$(printf '%s' "$BATT" | grep -o '[0-9]\{1,3\}%' | head -n1 | tr -d '%')
+      if [ -n "$PCT" ] && [ "$PCT" -lt 20 ]; then
+        log "on  -> LOW BATTERY ${PCT}%, not holding (sleep stays enabled)"
+        exit 0
+      fi
+    fi
+    printf '%s\n' "$TP" > "$DIR/$SID"
     sudo -n /usr/bin/pmset -a disablesleep 1 2>/dev/null
     log "on  -> disablesleep=1 holders=[$(ls -m "$DIR" 2>/dev/null)]"
     ;;
