@@ -90,6 +90,34 @@ shellcheck *.sh     # static analysis
 
 CI (`.github/workflows/ci.yml`) runs shellcheck + tests and a [gitleaks](https://github.com/gitleaks/gitleaks) secret scan on every push. Snyk was skipped on purpose: it scans package dependencies and this repo has none — shellcheck is the SAST tool for shell.
 
+## Cursor
+
+Same script, Cursor's own hooks — and Cursor + Claude Code sessions refcount together, since they share the flag directory.
+
+1. Copy the script and add the sudoers entry (steps 1–2 of the manual install above).
+2. Add to `~/.cursor/hooks.json` (absolute path — replace `YOU`):
+
+   ```json
+   {
+     "version": 1,
+     "hooks": {
+       "beforeSubmitPrompt": [{ "command": "bash /Users/YOU/.claude/scripts/lid-awake.sh on" }],
+       "stop": [{ "command": "bash /Users/YOU/.claude/scripts/lid-awake.sh off" }]
+     }
+   }
+   ```
+
+Cursor sends `conversation_id` instead of `session_id`; the script accepts either. Two caveats: Cursor's hook JSON has no transcript path, so crash cleanup for Cursor sessions falls back to the 12h prune; and the Cursor *CLI* currently emits only shell-execution hook events, so this works in the Cursor IDE only.
+
+## Copilot & anything else
+
+GitHub Copilot needs no integration: its coding agent runs in GitHub's cloud, so your laptop sleeping doesn't affect it — and Copilot in VS Code exposes no lifecycle hooks to attach to. For any other tool (or none), drive it by hand around long jobs:
+
+```bash
+bash ~/.claude/scripts/lid-awake.sh on    # hold (refcounts alongside Claude Code/Cursor)
+bash ~/.claude/scripts/lid-awake.sh off   # release
+```
+
 ## Windows
 
 An experimental Windows port (powercfg lid-action toggle + elevated scheduled tasks instead of pmset + sudoers) lives in [`windows/`](windows/) — see its README. Untested on real hardware; testers welcome.

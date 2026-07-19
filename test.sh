@@ -82,7 +82,12 @@ FAKE_SRC="Battery Power" FAKE_PCT=55 run okba6666 on
 check "55% battery: holds"         test -f "$FLAGS/okba6666"
 run okba6666 off
 
-# 8. clear -> everything reset
+# 8. Cursor-style JSON (conversation_id) is accepted as the session id
+printf '{"conversation_id":"curs9876-abcd"}' | bash "$SCRIPT" on
+check "cursor conversation_id"     test -f "$FLAGS/curs9876"
+printf '{"conversation_id":"curs9876-abcd"}' | bash "$SCRIPT" off
+
+# 9. clear -> everything reset
 run eeee7777 on
 bash "$SCRIPT" clear < /dev/null
 check "clear empties flags"        test -z "$(ls "$FLAGS")"

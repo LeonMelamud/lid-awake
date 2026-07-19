@@ -23,6 +23,8 @@ IN="" SID="" TP=""
 if [ ! -t 0 ]; then
   IN=$(cat)
   SID=$(printf '%s' "$IN" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+  # Cursor hooks send conversation_id instead of session_id (see README)
+  [ -n "$SID" ] || SID=$(printf '%s' "$IN" | sed -n 's/.*"conversation_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
   TP=$(printf '%s' "$IN" | sed -n 's/.*"transcript_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
 fi
 [ -n "$SID" ] || SID="pid$PPID"
