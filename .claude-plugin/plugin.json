@@ -4,5 +4,7 @@
   "version": "1.1.1",
   "description": "Keep your Mac awake (even lid-closed) while any Claude Code session is working; sleep re-enables when the last session finishes.",
   "author": { "name": "Leon Melamud" },
+  "homepage": "https://github.com/LeonMelamud/lid-awake",
+  "license": "MIT",
   "keywords": ["macos", "pmset", "sleep", "hooks"]
 }
