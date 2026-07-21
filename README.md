@@ -127,3 +127,13 @@ An experimental Windows port (powercfg lid-action toggle + elevated scheduled ta
 - macOS (`pmset` — everything the script uses ships with the OS, nothing to install)
 - An admin account (for the one-time sudoers entry)
 - A recent Claude Code (plugin marketplace support; for the manual route, hooks support is enough)
+
+## License
+
+MIT — see [LICENSE](LICENSE). Free to use, fork, and share.
+
+## Support
+
+lid-awake is free and open source. If it saved you a cooked laptop or a drained
+battery, you can [sponsor the project](https://github.com/sponsors/LeonMelamud) —
+entirely optional, and it stays free either way.
