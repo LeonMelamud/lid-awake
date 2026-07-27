@@ -19,6 +19,8 @@ Safety nets:
 
 - **Crash cleanup** — each flag records its session's transcript path; a working session updates its transcript constantly, so a transcript stale for 30 min marks a dead session and its flag is dropped at the next event from any session. A 12h flag-age prune backstops flags with no transcript.
 - **Battery guard** — below 20% on battery power, new holds are skipped (no cooked Mac in a closed bag); self-heals on the next prompt once charging or above the threshold.
+- **Network guard** — no default route (Wi-Fi off, nothing else up) means Claude can't work anyway, so the hold is skipped and any existing one released. A connected-but-weak signal still has a route and keeps the hold — bad reception is often temporary.
+- Either guard tripping mid-session releases that session's hold; other live sessions keep the Mac awake.
 - **Log** at `~/.claude/scripts/lid-awake.log`, self-truncated at ~200KB.
 - `status` / `clear` subcommands for debugging and manual unstick.
 

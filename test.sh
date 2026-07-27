@@ -20,7 +20,13 @@ cat > "$TMP/bin/pmset" <<'EOF'
 echo "Now drawing from '${FAKE_SRC:-AC Power}'"
 echo " -InternalBattery-0 (id=123)	${FAKE_PCT:-100}%; charging; 2:00 remaining"
 EOF
-chmod +x "$TMP/bin/sudo" "$TMP/bin/pmset"
+# fake route: default route exists unless FAKE_NET=off (Wi-Fi off / no link)
+cat > "$TMP/bin/route" <<'EOF'
+#!/bin/bash
+[ "${FAKE_NET:-on}" = off ] && exit 1
+echo "  interface: en0"
+EOF
+chmod +x "$TMP/bin/sudo" "$TMP/bin/pmset" "$TMP/bin/route"
 export PATH="$TMP/bin:$PATH" HOME="$TMP"
 FLAGS="$TMP/.claude/scripts/.lid-awake-flags"
 
@@ -73,14 +79,31 @@ check "stale transcript pruned"    test ! -f "$FLAGS/deadtr11"
 check "fresh transcript kept"      test -f "$FLAGS/livetr22"
 rm -f "$FLAGS/livetr22"; run dddd4444 off
 
-# 7. battery guard: below 20% on battery -> no hold, no pmset call
+# 7. battery guard: below 20% on battery -> no hold, sleep left enabled
 : > "$TMP/sudo.calls"
 FAKE_SRC="Battery Power" FAKE_PCT=15 run lowb5555 on
 check "low battery: no flag"       test ! -f "$FLAGS/lowb5555"
-check "low battery: no pmset"      test ! -s "$TMP/sudo.calls"
+check "low battery: sleep on"      test "$(last_call)" = "-n /usr/bin/pmset -a disablesleep 0"
 FAKE_SRC="Battery Power" FAKE_PCT=55 run okba6666 on
 check "55% battery: holds"         test -f "$FLAGS/okba6666"
 run okba6666 off
+
+# 7b. network guard: no default route -> no hold; weak-but-connected still holds
+FAKE_NET=off run nonet777 on
+check "no network: no flag"        test ! -f "$FLAGS/nonet777"
+check "no network: sleep on"       test "$(last_call)" = "-n /usr/bin/pmset -a disablesleep 0"
+run wifi8888 on
+check "network up: holds"          test -f "$FLAGS/wifi8888"
+# guard trips mid-hold -> existing hold is released, not left pinned
+FAKE_NET=off run wifi8888 on
+check "net drop releases hold"     test ! -f "$FLAGS/wifi8888"
+check "net drop re-enables sleep"  test "$(last_call)" = "-n /usr/bin/pmset -a disablesleep 0"
+# ...but only when it was the last holder
+run keep9999 on
+FAKE_NET=off run wifi8888 on
+check "other holder kept awake"    test -f "$FLAGS/keep9999"
+check "other holder: no release"   test "$(last_call)" = "-n /usr/bin/pmset -a disablesleep 1"
+run keep9999 off
 
 # 8. Cursor-style JSON (conversation_id) is accepted as the session id
 printf '{"conversation_id":"curs9876-abcd"}' | bash "$SCRIPT" on

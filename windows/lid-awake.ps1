@@ -86,10 +86,26 @@ function Holders { (Get-ChildItem $Dir -File -ErrorAction SilentlyContinue).Name
 
 switch ($Cmd) {
   "on" {
+    # refuse to hold: drop our flag too, so a guard tripping mid-session
+    # releases an earlier hold instead of pinning the machine awake forever.
+    function Refuse($why) {
+      Log "on  sid=$sid -> $why, not holding"
+      Remove-Item (Join-Path $Dir $sid) -Force -ErrorAction SilentlyContinue
+      if (-not (Get-ChildItem $Dir -File -ErrorAction SilentlyContinue)) {
+        schtasks /Run /TN "lid-awake-apply-off" | Out-Null
+      }
+    }
     # battery guard: below 20% and discharging -> don't pin the machine awake
     $b = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue
     if ($b -and $b.BatteryStatus -eq 1 -and $b.EstimatedChargeRemaining -lt 20) {
-      Log "on  sid=$sid -> LOW BATTERY $($b.EstimatedChargeRemaining)%, not holding"
+      Refuse "LOW BATTERY $($b.EstimatedChargeRemaining)%"
+      break
+    }
+    # no network -> Claude can't work anyway, let the lid sleep. Any up
+    # interface with a gateway counts; associated-but-weak Wi-Fi still has
+    # one, so a bad signal never drops the hold — it may well come back.
+    if (-not (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)) {
+      Refuse "NO NETWORK"
       break
     }
     New-Item -ItemType File -Force -Path (Join-Path $Dir $sid) | Out-Null

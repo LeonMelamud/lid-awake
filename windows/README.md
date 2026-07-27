@@ -8,7 +8,7 @@ Keeps a Windows laptop awake — lid closed too — while any Claude Code sessio
 
 Windows has no `pmset`; lid-close sleep is a power-plan setting. On first-in the script saves your current lid action + standby timeouts, sets lid action to *do nothing* and standby to *never*; on last-out it restores what you had. Changing power settings needs admin, so a one-time `setup.ps1` (run elevated) registers two scheduled tasks that run the privileged half with highest privileges — the user-level hook just triggers them, no UAC prompts. This is the Windows mirror of the macOS sudoers entry.
 
-Same safety nets as macOS: per-session flag refcounting, 12h stale-flag prune, low-battery guard (below 20% and discharging it won't hold), bounded log.
+Same safety nets as macOS: per-session flag refcounting, 12h stale-flag prune, low-battery guard (below 20% and discharging it won't hold), network guard (no default route -> no hold; weak-but-connected still holds), bounded log.
 
 ## Install
 

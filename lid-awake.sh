@@ -49,17 +49,27 @@ find "$DIR" -type f -mmin +720 -delete 2>/dev/null
 
 case "$1" in
   on)
+    # refuse to hold: drop our flag too, so a guard tripping mid-session
+    # releases an earlier hold instead of pinning the Mac awake forever.
+    refuse(){
+      log "on  -> $1, not holding"
+      rm -f "$DIR/$SID"
+      [ -n "$(ls "$DIR" 2>/dev/null)" ] || sudo -n /usr/bin/pmset -a disablesleep 0 2>/dev/null
+      exit 0
+    }
     # ponytail: below 20% on battery, don't pin the Mac awake — closed-bag
     # drain/heat guard. Self-heals: next prompt re-checks, so plugging in
     # (or charging back over 20%) re-enables the hold automatically.
     BATT=$(pmset -g batt 2>/dev/null)
     if printf '%s' "$BATT" | grep -q "Battery Power"; then
       PCT=$(printf '%s' "$BATT" | grep -o '[0-9]\{1,3\}%' | head -n1 | tr -d '%')
-      if [ -n "$PCT" ] && [ "$PCT" -lt 20 ]; then
-        log "on  -> LOW BATTERY ${PCT}%, not holding (sleep stays enabled)"
-        exit 0
-      fi
+      [ -n "$PCT" ] && [ "$PCT" -lt 20 ] && refuse "LOW BATTERY ${PCT}%"
     fi
+    # no network -> Claude can't work anyway, let the lid sleep. A default
+    # route is the whole test: Wi-Fi off (or ethernet unplugged, and nothing
+    # else up) means no route. Associated-but-weak still has a route, so a
+    # bad signal never drops the hold — it may well come back.
+    route -n get default 2>/dev/null | grep -q 'interface:' || refuse "NO NETWORK"
     printf '%s\n' "$TP" > "$DIR/$SID"
     sudo -n /usr/bin/pmset -a disablesleep 1 2>/dev/null
     log "on  -> disablesleep=1 holders=[$(ls -m "$DIR" 2>/dev/null)]"

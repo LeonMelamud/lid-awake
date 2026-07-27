@@ -3,6 +3,14 @@
 All notable changes to lid-awake are documented here. Versions follow the
 `version` field in `.claude-plugin/plugin.json`.
 
+## [1.2.0]
+
+- Network guard: with no default route (Wi-Fi off and nothing else up) the
+  hold is skipped — Claude can't work offline. Connected-but-weak keeps the
+  hold, since a bad signal often recovers.
+- Guards now release the session's own hold instead of only skipping the new
+  one, so a guard tripping mid-session can't leave the machine pinned awake.
+
 ## [1.1.1]
 
 - Cursor support: the script accepts `conversation_id` as well as `session_id`,
