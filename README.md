@@ -11,7 +11,11 @@ Claude Code hooks call the script on session activity:
 | Hook | Call | Effect |
 |------|------|--------|
 | `UserPromptSubmit` | `lid-awake.sh on` | touch `.lid-awake-flags/<session_id>`, `pmset -a disablesleep 1` |
+| `PostToolUse` | `lid-awake.sh on` | re-arm the hold once work resumes (no-op while already holding) |
+| `Notification` | `lid-awake.sh off` | Claude is blocked on you (permission prompt / idle input) — stop holding |
 | `Stop` / `SessionEnd` | `lid-awake.sh off` | remove the flag; if the flags dir is empty → `disablesleep 0` |
+
+**Waiting on a human is not work.** `Stop` covers the end of a turn, and `Notification` covers the mid-turn case — a permission prompt can block for hours, and there's no reason to burn battery through it. `PostToolUse` puts the hold back the moment the tool actually runs, so approving a prompt and walking away still keeps the Mac awake for the rest of the turn.
 
 The flag **directory** is the real-time state: one empty file per live session. `touch`/`rm` are O(1); sleep is only re-enabled when the last holder leaves. A single 0/1 flag file was considered and rejected — it can't refcount, so the first session to stop would re-enable sleep under a second still-working session (that was the original bug).
 
@@ -65,6 +69,12 @@ Done. Verify with `bash lid-awake.sh status` after your next prompt.
      "hooks": {
        "UserPromptSubmit": [
          { "hooks": [{ "type": "command", "command": "bash ~/.claude/scripts/lid-awake.sh on", "async": true }] }
+       ],
+       "PostToolUse": [
+         { "hooks": [{ "type": "command", "command": "bash ~/.claude/scripts/lid-awake.sh on", "async": true }] }
+       ],
+       "Notification": [
+         { "hooks": [{ "type": "command", "command": "bash ~/.claude/scripts/lid-awake.sh off", "async": true }] }
        ],
        "Stop": [
          { "hooks": [{ "type": "command", "command": "bash ~/.claude/scripts/lid-awake.sh off", "async": true }] }

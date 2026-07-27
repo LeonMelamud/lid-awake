@@ -105,6 +105,19 @@ check "other holder kept awake"    test -f "$FLAGS/keep9999"
 check "other holder: no release"   test "$(last_call)" = "-n /usr/bin/pmset -a disablesleep 1"
 run keep9999 off
 
+# 7c. PostToolUse re-arm: repeat `on` while already holding is a no-op...
+run tool1111 on
+: > "$TMP/sudo.calls"
+run tool1111 on
+check "repeat on: no pmset"        test ! -s "$TMP/sudo.calls"
+check "repeat on: still holding"   test -f "$FLAGS/tool1111"
+# ...but after a Notification released the hold, the next tool call re-arms it
+run tool1111 off
+check "notification released"      test "$(last_call)" = "-n /usr/bin/pmset -a disablesleep 0"
+run tool1111 on
+check "post-tool re-arms hold"     test "$(last_call)" = "-n /usr/bin/pmset -a disablesleep 1"
+run tool1111 off
+
 # 8. Cursor-style JSON (conversation_id) is accepted as the session id
 printf '{"conversation_id":"curs9876-abcd"}' | bash "$SCRIPT" on
 check "cursor conversation_id"     test -f "$FLAGS/curs9876"

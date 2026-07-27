@@ -108,9 +108,15 @@ switch ($Cmd) {
       Refuse "NO NETWORK"
       break
     }
+    # `on` also runs from PostToolUse (every tool call, to re-arm after a
+    # permission prompt released the hold): skip the scheduled task + log
+    # when this session is already holding. Only transitions do work.
+    $held = Test-Path (Join-Path $Dir $sid)
     New-Item -ItemType File -Force -Path (Join-Path $Dir $sid) | Out-Null
-    schtasks /Run /TN "lid-awake-apply-on" | Out-Null
-    Log "on  sid=$sid -> holders=[$(Holders)]"
+    if (-not $held) {
+      schtasks /Run /TN "lid-awake-apply-on" | Out-Null
+      Log "on  sid=$sid -> holders=[$(Holders)]"
+    }
   }
   "off" {
     Remove-Item (Join-Path $Dir $sid) -Force -ErrorAction SilentlyContinue

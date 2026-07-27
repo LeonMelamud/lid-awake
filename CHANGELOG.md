@@ -5,6 +5,12 @@ All notable changes to lid-awake are documented here. Versions follow the
 
 ## [1.2.0]
 
+- Don't hold the machine awake while Claude is waiting on a human: the
+  `Notification` hook (permission prompt, idle input) releases the hold, and
+  `PostToolUse` re-arms it as soon as work actually resumes. `on` is now
+  idempotent — repeat calls while already holding skip the privileged call
+  and the log line.
+
 - Network guard: with no default route (Wi-Fi off and nothing else up) the
   hold is skipped — Claude can't work offline. Connected-but-weak keeps the
   hold, since a bad signal often recovers.

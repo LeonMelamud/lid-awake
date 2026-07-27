@@ -33,6 +33,12 @@ Same safety nets as macOS: per-session flag refcounting, 12h stale-flag prune, l
        "UserPromptSubmit": [
          { "hooks": [{ "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\YOU\\.claude\\scripts\\lid-awake.ps1\" on", "async": true }] }
        ],
+       "PostToolUse": [
+         { "hooks": [{ "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\YOU\\.claude\\scripts\\lid-awake.ps1\" on", "async": true }] }
+       ],
+       "Notification": [
+         { "hooks": [{ "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\YOU\\.claude\\scripts\\lid-awake.ps1\" off", "async": true }] }
+       ],
        "Stop": [
          { "hooks": [{ "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\YOU\\.claude\\scripts\\lid-awake.ps1\" off", "async": true }] }
        ],

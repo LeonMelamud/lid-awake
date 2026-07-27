@@ -2,8 +2,11 @@
 # Toggle macOS lid-close sleep, multi-session safe. Needs the NOPASSWD sudoers
 # entry for the two exact pmset commands.
 #
-# on/off are called by Claude Code hooks (UserPromptSubmit / Stop / SessionEnd)
-# and receive the hook JSON on stdin — the session_id becomes a flag file in
+# on/off are called by Claude Code hooks (on: UserPromptSubmit, PostToolUse;
+# off: Notification, Stop, SessionEnd). Notification means Claude is blocked
+# on a human (permission prompt or idle input) — no reason to stay awake for
+# that — and PostToolUse re-arms the hold the moment work actually resumes.
+# They receive the hook JSON on stdin — the session_id becomes a flag file in
 # $DIR, and sleep is only re-enabled when the LAST holder releases (fixes the
 # old single-session assumption: one session stopping used to re-enable sleep
 # while another was still mid-task).
@@ -70,9 +73,16 @@ case "$1" in
     # else up) means no route. Associated-but-weak still has a route, so a
     # bad signal never drops the hold — it may well come back.
     route -n get default 2>/dev/null | grep -q 'interface:' || refuse "NO NETWORK"
+    # `on` also runs from PostToolUse (every tool call, to re-arm after a
+    # permission prompt released the hold), so it's a hot path: rewrite the
+    # flag to refresh its mtime, but skip the sudo + log line when this
+    # session is already holding. Only transitions reach the log.
+    HELD=; [ -f "$DIR/$SID" ] && HELD=1
     printf '%s\n' "$TP" > "$DIR/$SID"
-    sudo -n /usr/bin/pmset -a disablesleep 1 2>/dev/null
-    log "on  -> disablesleep=1 holders=[$(ls -m "$DIR" 2>/dev/null)]"
+    if [ -z "$HELD" ]; then
+      sudo -n /usr/bin/pmset -a disablesleep 1 2>/dev/null
+      log "on  -> disablesleep=1 holders=[$(ls -m "$DIR" 2>/dev/null)]"
+    fi
     ;;
   off)
     rm -f "$DIR/$SID"
