@@ -14,11 +14,22 @@ cat > "$TMP/bin/sudo" <<EOF
 #!/bin/bash
 echo "\$*" >> "$TMP/sudo.calls"
 EOF
-# fake pmset: battery state driven by FAKE_SRC / FAKE_PCT env vars
+# fake pmset: `-g batt` reports FAKE_SRC / FAKE_PCT, bare `-g` reports
+# SleepDisabled from FAKE_SLEEPDISABLED (what `reap` reads)
 cat > "$TMP/bin/pmset" <<'EOF'
 #!/bin/bash
-echo "Now drawing from '${FAKE_SRC:-AC Power}'"
-echo " -InternalBattery-0 (id=123)	${FAKE_PCT:-100}%; charging; 2:00 remaining"
+case "$*" in
+  *batt*)
+    echo "Now drawing from '${FAKE_SRC:-AC Power}'"
+    echo " -InternalBattery-0 (id=123)	${FAKE_PCT:-100}%; charging; 2:00 remaining" ;;
+  *) echo " SleepDisabled		${FAKE_SLEEPDISABLED:-1}" ;;
+esac
+EOF
+# fake pgrep: no claude process when FAKE_CLAUDE=none
+cat > "$TMP/bin/pgrep" <<'EOF'
+#!/bin/bash
+[ "${FAKE_CLAUDE:-up}" = none ] && exit 1
+echo 12345
 EOF
 # fake route: default route exists unless FAKE_NET=off (Wi-Fi off / no link)
 cat > "$TMP/bin/route" <<'EOF'
@@ -26,7 +37,7 @@ cat > "$TMP/bin/route" <<'EOF'
 [ "${FAKE_NET:-on}" = off ] && exit 1
 echo "  interface: en0"
 EOF
-chmod +x "$TMP/bin/sudo" "$TMP/bin/pmset" "$TMP/bin/route"
+chmod +x "$TMP/bin/sudo" "$TMP/bin/pmset" "$TMP/bin/route" "$TMP/bin/pgrep"
 export PATH="$TMP/bin:$PATH" HOME="$TMP"
 FLAGS="$TMP/.claude/scripts/.lid-awake-flags"
 
@@ -122,6 +133,32 @@ run tool1111 off
 printf '{"conversation_id":"curs9876-abcd"}' | bash "$SCRIPT" on
 check "cursor conversation_id"     test -f "$FLAGS/curs9876"
 printf '{"conversation_id":"curs9876-abcd"}' | bash "$SCRIPT" off
+
+# 8b. reap: terminal killed (no hooks fire, claude process gone) -> released
+run kill1111 on
+: > "$TMP/sudo.calls"
+FAKE_CLAUDE=none bash "$SCRIPT" reap < /dev/null
+check "reap drops orphan flag"     test ! -f "$FLAGS/kill1111"
+check "reap re-enables sleep"      test "$(last_call)" = "-n /usr/bin/pmset -a disablesleep 0"
+
+# ...but a live claude process keeps its hold
+run live2222 on
+: > "$TMP/sudo.calls"
+bash "$SCRIPT" reap < /dev/null
+check "reap spares live session"   test -f "$FLAGS/live2222"
+check "reap: no pmset when held"   test ! -s "$TMP/sudo.calls"
+run live2222 off
+
+# ...and reap is a no-op once sleep is already back on (no log/pmset churn)
+: > "$TMP/sudo.calls"
+FAKE_SLEEPDISABLED=0 bash "$SCRIPT" reap < /dev/null
+check "reap idle: no pmset"        test ! -s "$TMP/sudo.calls"
+
+# 8c. a hook event with no transcript_path must not blind the staleness prune
+printf '{"session_id":"keeptp1","transcript_path":"%s/tr-keep.jsonl"}' "$TMP" | bash "$SCRIPT" on
+run keeptp1 on   # same session, JSON without transcript_path
+check "transcript path preserved"  test "$(head -n1 "$FLAGS/keeptp1")" = "$TMP/tr-keep.jsonl"
+run keeptp1 off
 
 # 9. clear -> everything reset
 run eeee7777 on

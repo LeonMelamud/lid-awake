@@ -78,7 +78,10 @@ case "$1" in
     # flag to refresh its mtime, but skip the sudo + log line when this
     # session is already holding. Only transitions reach the log.
     HELD=; [ -f "$DIR/$SID" ] && HELD=1
-    printf '%s\n' "$TP" > "$DIR/$SID"
+    # never clobber a recorded transcript path with an empty one — a hook
+    # event that arrives without transcript_path would otherwise blind the
+    # 30-min staleness prune and strand the flag until the 12h backstop.
+    if [ -n "$TP" ]; then printf '%s\n' "$TP" > "$DIR/$SID"; else touch "$DIR/$SID"; fi
     if [ -z "$HELD" ]; then
       sudo -n /usr/bin/pmset -a disablesleep 1 2>/dev/null
       log "on  -> disablesleep=1 holders=[$(ls -m "$DIR" 2>/dev/null)]"
@@ -93,9 +96,50 @@ case "$1" in
       log "off -> KEPT AWAKE, other sessions active: [$(ls -m "$DIR")]"
     fi
     ;;
+  reap)
+    # launchd runs this every 5 min (see install-reaper). Every other cleanup
+    # path in this script is triggered by a hook, and a killed terminal —
+    # cmux window closed, tab force-quit, SSH dropped — fires no hooks at
+    # all, so the hold outlives every session with nothing left to notice.
+    # The staleness prune at the top of the script already ran; this adds the
+    # blunt check it can't make on its own: no `claude` process anywhere
+    # means nothing can legitimately be holding.
+    if ! pgrep -x claude >/dev/null 2>&1 && [ -n "$(ls "$DIR" 2>/dev/null)" ]; then
+      rm -f "$DIR"/*
+      log "reap -> dropped orphan flags (no claude process running)"
+    fi
+    if [ -z "$(ls "$DIR" 2>/dev/null)" ] && pmset -g 2>/dev/null | grep -q 'SleepDisabled.*1'; then
+      sudo -n /usr/bin/pmset -a disablesleep 0 2>/dev/null
+      log "reap -> disablesleep=0 (no live holders)"
+    fi
+    ;;
+  install-reaper)
+    # Copy to a stable path first: the plugin cache lives under a versioned
+    # directory that vanishes on the next update, and launchd would keep
+    # pointing at it. Re-run after an update to refresh the copy.
+    SELF="$HOME/.claude/scripts/lid-awake.sh"
+    SRC=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+    [ "$SRC" = "$SELF" ] || cp "$SRC" "$SELF"
+    P="$HOME/Library/LaunchAgents/com.lid-awake.reap.plist"
+    mkdir -p "$(dirname "$P")"
+    cat > "$P" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.lid-awake.reap</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/bash</string><string>$SELF</string><string>reap</string></array>
+  <key>StartInterval</key><integer>300</integer>
+  <key>RunAtLoad</key><true/>
+</dict></plist>
+XML
+    launchctl bootout "gui/$(id -u)/com.lid-awake.reap" 2>/dev/null
+    launchctl bootstrap "gui/$(id -u)" "$P" && echo "reaper installed: runs $SELF reap every 5 min"
+    ;;
   status)
     echo "pmset : $(pmset -g 2>/dev/null | grep -i sleepdisabled | tr -s ' ')"
     echo "holders: $(ls -m "$DIR" 2>/dev/null)"
+    echo "reaper : $(launchctl list 2>/dev/null | grep -q com.lid-awake.reap && echo "installed" || echo "NOT installed (bash lid-awake.sh install-reaper)")"
     echo "--- last 10 log lines ---"
     tail -n 10 "$LOG" 2>/dev/null
     ;;
