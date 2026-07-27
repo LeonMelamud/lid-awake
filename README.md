@@ -25,6 +25,7 @@ Safety nets:
 - **Battery guard** — below 20% on battery power, new holds are skipped (no cooked Mac in a closed bag); self-heals on the next prompt once charging or above the threshold.
 - **Network guard** — no default route (Wi-Fi off, nothing else up) means Claude can't work anyway, so the hold is skipped and any existing one released. A connected-but-weak signal still has a route and keeps the hold — bad reception is often temporary.
 - Either guard tripping mid-session releases that session's hold; other live sessions keep the Mac awake.
+- **Reaper** — every cleanup above is triggered by a hook, and a killed terminal (cmux window closed, tab force-quit, SSH dropped) fires none: the flag survives and the Mac never sleeps again. A launchd agent runs `lid-awake.sh reap` every 5 min — no `claude` process anywhere means no flag can legitimately be holding. Install once with `bash lid-awake.sh install-reaper`; `status` tells you if it's missing.
 - **Log** at `~/.claude/scripts/lid-awake.log`, self-truncated at ~200KB.
 - `status` / `clear` subcommands for debugging and manual unstick.
 
@@ -89,14 +90,17 @@ Done. Verify with `bash lid-awake.sh status` after your next prompt.
 ## Debugging
 
 ```bash
-bash ~/.claude/scripts/lid-awake.sh status   # pmset state + current holders + log tail
+bash ~/.claude/scripts/lid-awake.sh status   # pmset state + holders + reaper + log tail
 bash ~/.claude/scripts/lid-awake.sh clear    # drop all flags, re-enable sleep
+bash ~/.claude/scripts/lid-awake.sh reap     # release if no claude process is alive
 ```
+
+Uninstall the reaper: `launchctl bootout gui/$(id -u)/com.lid-awake.reap && rm ~/Library/LaunchAgents/com.lid-awake.reap.plist`
 
 ## Tests & security checks
 
 ```bash
-bash test.sh        # 10 assertions: refcounting, stale pruning, clear — stubs sudo, no root needed
+bash test.sh        # 33 assertions: refcounting, guards, reaping, pruning — stubs sudo, no root needed
 shellcheck *.sh     # static analysis
 ```
 

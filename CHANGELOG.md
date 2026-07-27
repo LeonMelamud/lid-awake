@@ -5,6 +5,14 @@ All notable changes to lid-awake are documented here. Versions follow the
 
 ## [1.2.0]
 
+- Reaper: a launchd agent (`install-reaper`, every 5 min) releases the hold
+  when no `claude` process is alive. Killing the terminal — cmux window
+  closed, tab force-quit, SSH dropped — fires no hooks, so nothing was left
+  running to notice the session was gone and sleep stayed disabled.
+- A hook event without `transcript_path` no longer overwrites the recorded
+  one; that blinded the 30-min staleness prune and stranded the flag until
+  the 12h backstop.
+
 - Don't hold the machine awake while Claude is waiting on a human: the
   `Notification` hook (permission prompt, idle input) releases the hold, and
   `PostToolUse` re-arms it as soon as work actually resumes. `on` is now
